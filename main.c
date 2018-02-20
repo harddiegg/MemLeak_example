@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include "mem_leak.h"
 
-extern cp_mem_monitor *memory_list;
-
 int main() {
 	cp_mem_monitor_init();
 

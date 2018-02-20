@@ -26,7 +26,7 @@ typedef struct cp_mem_monitor{
     cp_mem_item *first;
     cp_mem_item *last;
 }cp_mem_monitor;
-cp_mem_monitor *memory_list;
+extern cp_mem_monitor *memory_list;
 
 void cp_del_mem_entry(cp_mem_monitor *memory_list, void *ptr, const char *func, const int line, const char* file);
 void cp_add_mem_entry(cp_mem_monitor *memory_list, void *ptr, ssize_t size, const char *func, const int line, const char* file);
@@ -36,7 +36,7 @@ void cp_mem_monitor_deinit(void);
 void* leak_malloc( ssize_t size, const char* func, int line, const char* file );
 void* leak_calloc( ssize_t nmemb, ssize_t size, const char* func, int line, const char* file );
 void* leak_realloc( void* ptr, ssize_t size, const char* func, int line, const char* file );
-void* leak_strdup( void* ptr, const char* func, int line, const char* file );
+char* leak_strdup( const char* ptr, const char* func, int line, const char* file );
 void leak_free( void* ptr, const char* func, int line, const char* file );
 void leak_free_only( void* ptr );
 
@@ -52,7 +52,7 @@ void leak_free_only( void* ptr );
 
 #define LIST_INIT(list, type)                               \
         {                                                   \
-            list = (type *)LEAK_CALLOC(1, sizeof(type));         \
+            list = (type *)calloc(1, sizeof(type));         \
             list->first = list->last = NULL;                \
             list->IDCounter = 1;                            \
         }
