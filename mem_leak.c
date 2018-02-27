@@ -14,6 +14,8 @@ cp_mem_monitor *memory_list;
 #define CLEAN_DEBUG
 #endif
 
+#define PRINT_ALLOC_INFO 1
+
 void cp_del_mem_entry(cp_mem_monitor *memory_list, void *ptr, const char *func, const int line, const char* file)
 {
 	if (!memory_list || !ptr)
@@ -27,8 +29,10 @@ void cp_del_mem_entry(cp_mem_monitor *memory_list, void *ptr, const char *func, 
 		tmp = tmp->next;
 	}
 	if (tmp) {
-		fprintf(leak_out, "@%d %s:[%p] - [%s]\n", getpid(), file, ptr, tmp->mem_place);
-		fflush(NULL);
+		if (PRINT_ALLOC_INFO) {
+			fprintf(leak_out, "@%d %s:[%p] - [%s]\n", getpid(), file, ptr, tmp->mem_place);
+			fflush(NULL);
+		}
 		memory_list->total_alloc-=tmp->size;
 		LIST_DEL_ITEM(memory_list, tmp, cp_mem_item);
 	} else {
@@ -56,8 +60,10 @@ void cp_add_mem_entry(cp_mem_monitor *memory_list, void *ptr, ssize_t size, cons
 		strftime(tmbuf, sizeof tmbuf, "%Y-%m-%d %H:%M:%S", nowtm);
 		strcpy(new_entry->time_stamp, tmbuf);
 		sprintf(new_entry->mem_place, "%s:%d", func, line);
-		fprintf(leak_out, "@%d %s:[%p] + [%d] [%s]\n", getpid(), file, ptr, (int)size, new_entry->mem_place);
-		fflush(NULL);
+		if (PRINT_ALLOC_INFO) {
+			fprintf(leak_out, "@%d %s:[%p] + [%d] [%s]\n", getpid(), file, ptr, (int)size, new_entry->mem_place);
+			fflush(NULL);
+		}
 		new_entry->ptr = ptr;
 		new_entry->size = size;
 		LIST_ADD_ITEM(memory_list, new_entry);
@@ -103,37 +109,43 @@ void cp_mem_monitor_deinit(void)
 	CLOSE_DEBUG;
 	LIST_DEINIT(memory_list);
 }
-void* leak_malloc( ssize_t size, const char* func, int line, const char* file )
+void* leak_malloc(ssize_t size, const char* func, int line, const char* file)
 {
 	pthread_mutex_lock(&memory_list->lock);
 	OPEN_DEBUG;
-	fprintf(leak_out, "LEAK_MALLOC: ");
-	fflush(NULL);
+	if (PRINT_ALLOC_INFO) {
+		fprintf(leak_out, "LEAK_MALLOC: ");
+		fflush(NULL);
+	}
 	void* ptr = malloc(size);
 	cp_add_mem_entry (memory_list, ptr, size, func, line, file);
 	CLOSE_DEBUG;
 	pthread_mutex_unlock(&memory_list->lock);
 	return ptr;
 }
-void* leak_calloc( ssize_t nmemb, ssize_t size, const char* func, int line, const char* file )
+void* leak_calloc(ssize_t nmemb, ssize_t size, const char* func, int line, const char* file)
 {
 	pthread_mutex_lock(&memory_list->lock);
 	OPEN_DEBUG;
-	fprintf(leak_out, "LEAK_CALLOC");
-	fflush(NULL);
+	if (PRINT_ALLOC_INFO) {
+		fprintf(leak_out, "LEAK_CALLOC");
+		fflush(NULL);
+	}
 	void* ptr = calloc(nmemb, size);
 	cp_add_mem_entry (memory_list, ptr, size, func, line, file);
 	CLOSE_DEBUG;
 	pthread_mutex_unlock(&memory_list->lock);
 	return ptr;
 }
-void leak_free( void* ptr, const char* func, int line, const char* file )
+void leak_free(void* ptr, const char* func, int line, const char* file)
 {
 	pthread_mutex_lock(&memory_list->lock);
 	OPEN_DEBUG;
 	if (ptr) {
-		fprintf(leak_out, "LEAK_FREE: ");
-		fflush(NULL);
+		if (PRINT_ALLOC_INFO) {
+			fprintf(leak_out, "LEAK_FREE: ");
+			fflush(NULL);
+		}
 		cp_del_mem_entry(memory_list, ptr, func, line, file);
 		free(ptr);
 		ptr = NULL;
@@ -141,28 +153,34 @@ void leak_free( void* ptr, const char* func, int line, const char* file )
 	CLOSE_DEBUG;
 	pthread_mutex_unlock(&memory_list->lock);
 }
-void* leak_realloc( void* ptr, ssize_t size, const char* func, int line, const char* file )
+void* leak_realloc(void* ptr, ssize_t size, const char* func, int line, const char* file)
 {
 	pthread_mutex_lock(&memory_list->lock);
 	OPEN_DEBUG;
-	fprintf(leak_out, "LEAK_REALLOC: ");
-	fprintf(leak_out, "@%d %s:[%p] < [%d] [%s:%d]\n", getpid(), file, ptr, (int)size, func, line);
-	fflush(NULL);
+	if (PRINT_ALLOC_INFO) {
+		fprintf(leak_out, "LEAK_REALLOC: ");
+		fprintf(leak_out, "@%d %s:[%p] < [%d] [%s:%d]\n", getpid(), file, ptr, (int)size, func, line);
+		fflush(NULL);
+	}
 	cp_del_mem_entry(memory_list, ptr, func, line, file);
 	ptr = realloc(ptr, size);
 	cp_add_mem_entry (memory_list, ptr, size, func, line, file);
-	fprintf(leak_out, "@%d %s:[%p] > [%d] [%s:%d]\n", getpid(), file, ptr, (int)size, func, line);
-	fflush(NULL);
+	if (PRINT_ALLOC_INFO) {
+		fprintf(leak_out, "@%d %s:[%p] > [%d] [%s:%d]\n", getpid(), file, ptr, (int)size, func, line);
+		fflush(NULL);
+	}
 	CLOSE_DEBUG;
 	pthread_mutex_unlock(&memory_list->lock);
 	return ptr;
 }
-char* leak_strdup( const char* ptr, const char* func, int line, const char* file )
+char* leak_strdup(const char* ptr, const char* func, int line, const char* file)
 {
 	pthread_mutex_lock(&memory_list->lock);
 	OPEN_DEBUG;
-	fprintf(leak_out, "LEAK_STRDUP: ");
-	fflush(NULL);
+	if (PRINT_ALLOC_INFO) {
+		fprintf(leak_out, "LEAK_STRDUP: ");
+		fflush(NULL);
+	}
 	ssize_t size = strlen(ptr);
 	char *ptr_ret = (char *)malloc(size);
 	strncpy(ptr_ret, ptr, size);
@@ -171,13 +189,15 @@ char* leak_strdup( const char* ptr, const char* func, int line, const char* file
 	pthread_mutex_unlock(&memory_list->lock);
 	return ptr_ret;
 }
-void leak_free_only( void* ptr )
+void leak_free_only(void* ptr)
 {
 	pthread_mutex_lock(&memory_list->lock);
 	OPEN_DEBUG;
 	if (ptr) {
-		fprintf(leak_out, "FREE_ONLY: ");
-		fflush(NULL);
+		if (PRINT_ALLOC_INFO) {
+			fprintf(leak_out, "FREE_ONLY: ");
+			fflush(NULL);
+		}
 		cp_del_mem_entry(memory_list, ptr, "ONLY_DELETE", -1, "O_D");
 		free(ptr);
 	}
