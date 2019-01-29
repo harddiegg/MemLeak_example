@@ -30,7 +30,7 @@ void cp_del_mem_entry(cp_mem_monitor *memory_list, void *ptr, const char *func, 
 	}
 	if (tmp) {
 		if (PRINT_ALLOC_INFO) {
-			fprintf(leak_out, "@%d %s:[%p] - [%s]\n", getpid(), file, ptr, tmp->mem_place);
+			fprintf(leak_out, "@%d %s:[%p] - [%s:%d]\n", getpid(), file, ptr, tmp->place_func, tmp->place_line);
 			fflush(NULL);
 		}
 		memory_list->total_alloc-=tmp->size;
@@ -50,18 +50,13 @@ void cp_add_mem_entry(cp_mem_monitor *memory_list, void *ptr, ssize_t size, cons
 	LIST_CREATE_ITEM(new_entry, cp_mem_item);
 	if (new_entry) {
 		struct timeval tv;
-		time_t nowtime;
-		struct tm *nowtm;
-		char tmbuf[32];
-
 		gettimeofday(&tv, NULL);
-		nowtime = tv.tv_sec;
-		nowtm = localtime(&nowtime);
-		strftime(tmbuf, sizeof tmbuf, "%Y-%m-%d %H:%M:%S", nowtm);
-		strcpy(new_entry->time_stamp, tmbuf);
-		sprintf(new_entry->mem_place, "%s:%d", func, line);
+		strftime(new_entry->time_stamp, sizeof(new_entry->time_stamp), "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
+		new_entry->place_func = func;
+		new_entry->place_line = line;
+
 		if (PRINT_ALLOC_INFO) {
-			fprintf(leak_out, "@%d %s:[%p] + [%d] [%s]\n", getpid(), file, ptr, (int)size, new_entry->mem_place);
+			fprintf(leak_out, "@%d %s:[%p] + [%d] [%s:%d]\n", getpid(), file, ptr, (int)size, new_entry->place_func, new_entry->place_line);
 			fflush(NULL);
 		}
 		new_entry->ptr = ptr;
@@ -82,7 +77,7 @@ void cp_show_mem_status(cp_mem_monitor *memory_list)
 		fflush( NULL );
 		cp_mem_item *__tmp = memory_list->first;
 		while(__tmp) {
-			fprintf(leak_out, "ID: %d ptr %p, size %d,alloced at %s [%s]\n", __tmp->ID, __tmp->ptr, (int)__tmp->size, __tmp->mem_place, __tmp->time_stamp);
+			fprintf(leak_out, "ID: %d ptr %p, size %d, alloced at %s:%d [%s]\n", __tmp->ID, __tmp->ptr, (int)__tmp->size, __tmp->place_func, __tmp->place_line, __tmp->time_stamp);
 			__tmp = __tmp->next;
 		}
 		CLOSE_DEBUG;
@@ -101,11 +96,9 @@ void cp_mem_monitor_deinit(void)
 {
 	cp_show_mem_status(memory_list);
 	OPEN_DEBUG;
-	// fprintf(leak_out, "lock %s:%d\n", __func__, __LINE__);
 	pthread_mutex_lock(&memory_list->lock);
 	LIST_CLEAR(memory_list, cp_mem_item);
 	pthread_mutex_unlock(&memory_list->lock);
-	// fprintf(leak_out, "unlock %s:%d\n", __func__, __LINE__);
 	CLOSE_DEBUG;
 	LIST_DEINIT(memory_list);
 }
@@ -128,7 +121,7 @@ void* leak_calloc(ssize_t nmemb, ssize_t size, const char* func, int line, const
 	pthread_mutex_lock(&memory_list->lock);
 	OPEN_DEBUG;
 	if (PRINT_ALLOC_INFO) {
-		fprintf(leak_out, "LEAK_CALLOC");
+		fprintf(leak_out, "LEAK_CALLOC: ");
 		fflush(NULL);
 	}
 	void* ptr = calloc(nmemb, size);
@@ -159,16 +152,15 @@ void* leak_realloc(void* ptr, ssize_t size, const char* func, int line, const ch
 	OPEN_DEBUG;
 	if (PRINT_ALLOC_INFO) {
 		fprintf(leak_out, "LEAK_REALLOC: ");
-		fprintf(leak_out, "@%d %s:[%p] < [%d] [%s:%d]\n", getpid(), file, ptr, (int)size, func, line);
 		fflush(NULL);
 	}
 	cp_del_mem_entry(memory_list, ptr, func, line, file);
 	ptr = realloc(ptr, size);
-	cp_add_mem_entry (memory_list, ptr, size, func, line, file);
 	if (PRINT_ALLOC_INFO) {
-		fprintf(leak_out, "@%d %s:[%p] > [%d] [%s:%d]\n", getpid(), file, ptr, (int)size, func, line);
+		fprintf(leak_out, "LEAK_REALLOC: ");
 		fflush(NULL);
 	}
+	cp_add_mem_entry (memory_list, ptr, size, func, line, file);
 	CLOSE_DEBUG;
 	pthread_mutex_unlock(&memory_list->lock);
 	return ptr;

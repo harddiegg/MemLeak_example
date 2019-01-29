@@ -12,7 +12,8 @@ typedef struct cp_mem_item{
 	int ID;
 	void *ptr;
 	ssize_t size;
-	char mem_place[128];
+	const char* place_func;
+	int place_line;
 	char time_stamp[32];
 	struct cp_mem_item *next;
 	struct cp_mem_item *prev;
