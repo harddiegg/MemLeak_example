@@ -1,5 +1,10 @@
 #include "mem_leak.h"
 
+#include <stdio.h>
+#include <sys/time.h>
+#include <stdlib.h>
+#include <string.h>
+
 #define xfree(ptr) if (ptr){free(ptr); ptr=NULL;}
 
 #define LIST_INIT(list, type)                               \

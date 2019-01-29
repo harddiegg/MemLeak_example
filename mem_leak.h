@@ -3,10 +3,6 @@
 
 #include <unistd.h>
 #include <pthread.h>
-#include <stdio.h>
-#include <sys/time.h>
-#include <stdlib.h>
-#include <string.h>
 
 typedef struct cp_mem_item{
 	int ID;
