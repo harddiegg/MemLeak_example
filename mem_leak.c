@@ -1,5 +1,80 @@
 #include "mem_leak.h"
 
+#define xfree(ptr) if (ptr){free(ptr); ptr=NULL;}
+
+#define LIST_INIT(list, type)                               \
+        {                                                   \
+            list = (type *)calloc(1, sizeof(type));         \
+            list->first = list->last = NULL;                \
+            list->IDCounter = 1;                            \
+        }
+#define LIST_CREATE_ITEM(item, type)                        \
+        {                                                   \
+            item = (type *)calloc(1, sizeof(type));         \
+        }
+#define LIST_ADD_ITEM(list, newItem)                        \
+        if (list && newItem)                                \
+        {                                                   \
+            newItem->ID = list->IDCounter++;                \
+            if (!list->first)                               \
+            {                                               \
+                list->first = list->last = newItem;         \
+            }                                               \
+            else                                            \
+            {                                               \
+                list->last->next = newItem;                 \
+                newItem->prev = list->last;                 \
+                list->last = newItem;                       \
+            }                                               \
+            list->itemCnt++;                                \
+        }
+#define LIST_DEL_ITEM(list, itemToDel, type)                \
+        if (list && itemToDel)                              \
+        {                                                   \
+            type *__tmp = itemToDel->next;                  \
+            while(__tmp)                                    \
+            {                                               \
+                __tmp->ID--;                                \
+                __tmp = __tmp->next;                        \
+            }                                               \
+            if (itemToDel->prev == NULL)                    \
+            {                                               \
+                list->first = itemToDel->next;              \
+            }                                               \
+            else                                            \
+            {                                               \
+                itemToDel->prev->next = itemToDel->next;    \
+            }                                               \
+            if (itemToDel->next == NULL)                    \
+            {                                               \
+                list->last = itemToDel->prev;               \
+            }                                               \
+            else                                            \
+            {                                               \
+                itemToDel->next->prev = itemToDel->prev;    \
+            }                                               \
+            xfree(itemToDel);                               \
+            list->itemCnt--;                                \
+            list->IDCounter--;                              \
+        }
+#define LIST_CLEAR(list, type)                              \
+        {                                                   \
+            if (list)                                       \
+            {                                               \
+                type *__tmp = list->first;                  \
+                while(__tmp)                                \
+                {                                           \
+                        type *__del = __tmp;                \
+                        __tmp = __tmp->next;                \
+                        xfree(__del);                       \
+                }                                           \
+                list->IDCounter = 0;                        \
+                list->itemCnt = 0;                          \
+            }                                               \
+        }
+#define LIST_DEINIT(list)                                   \
+        xfree(list);
+
 cp_mem_monitor *memory_list;
 
 #if 1
